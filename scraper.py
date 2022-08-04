@@ -4,46 +4,67 @@ from curses.textpad import Textbox, rectangle
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 def main():
+
     curses.wrapper(curses_main)
 
 def curses_main(window):
+    curses.curs_set(0)
+
     consoles = []
     collections = {}
 
     # NOTE: this is a shallow way to get the consoles and collections
     # will need to also add a way to map each entry name within a colletion
-    # to it's url/href (prefereably the entire url) (separate dictionary (key: entry, value: url))!!
+    # to it's url/href (preferably the entire url) (separate dictionary (key: entry, value: url))!!
     load_collections(collections, consoles)
 
     title_screen(window)
 
-    sel_cursor = search_method_sel(window)
+    # interactive loop
+    while True:
+        sel_cursor = search_method_sel(window)
 
-    if sel_cursor == 0:
-        search_all(window, collections, consoles)
-    elif sel_cursor == 1:
-        console_key = select_console(window, consoles)
-        search_console(window, collections[console_key], console_key)
-    elif sel_cursor == 2:
-        url = select_collection(window, collections)
-        browse_collection(window, url)
+        if sel_cursor == 0:
+            search_all(window, collections, consoles)
+        elif sel_cursor == 1:
+            console_key = select_console(window, consoles)
+            search_console(window, collections[console_key], console_key)
+        elif sel_cursor == 2:
+            url = select_collection(window, collections)
+            browse_collection(window, url)
+        elif sel_cursor == -1:
+            break
 
-    window.border(0)
-    window.getch()
+        title_screen(window)
+
+        msg_pad = window.subpad(1, len("Press ESC to exit | Press any other key to re-select") + 1, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to exit | Press any other key to re-select") // 2)
+        msg_pad.addstr(0, 0, "Press ESC to exit | Press any other key to re-select")
+        msg_pad.refresh()
+
+        key = window.getch()
+        if key == curses.ascii.ESC:
+            break
+        else:
+            msg_pad.clear()
+            msg_pad.refresh()
+    # end interactive loop
+
+    # window.border(0)
+    # window.getch()
 
 def search_method_sel(window):
-    curses.curs_set(0)
     sel_cursor = 0
-    dispText = window.subwin(curses.LINES - 4, curses.COLS - 4, 2, 2)
+    disp_text = window.subwin(curses.LINES - 4, curses.COLS - 4, 2, 2)
 
-    dispText.addstr(curses.LINES - 5 - 6, 1, "Select search method:", curses.A_UNDERLINE)
-    dispText.addstr(curses.LINES - 4 - 6, 4, "Search All")
-    dispText.addstr(curses.LINES - 3 - 6, 4, "Search Specific Console")
-    dispText.addstr(curses.LINES - 2 - 6, 4, "Browse Collection(s)")
-    dispText.refresh()
+    disp_text.addstr(curses.LINES - 5 - 6, 1, "Select search method:", curses.A_UNDERLINE)
+    disp_text.addstr(curses.LINES - 4 - 6, 4, "Search All")
+    disp_text.addstr(curses.LINES - 3 - 6, 4, "Search Specific Console")
+    disp_text.addstr(curses.LINES - 2 - 6, 4, "Browse Collection(s)")
+    disp_text.refresh()
 
     cursor_win = window.subwin(4, 1, curses.LINES - 8, 4)
     cursor_win.addstr(0, 0, ">")
+    cursor_win.refresh()
 
     while True:
         key = window.getch()
@@ -63,21 +84,23 @@ def search_method_sel(window):
             cursor_win.addstr(sel_cursor, 0, ">")
         elif key == curses.KEY_ENTER or key == 10:
             break
+        elif key == curses.ascii.ESC:
+            return -1
         cursor_win.refresh()
 
     cursor_win.clear()
-    dispText.clear()
+    disp_text.clear()
     cursor_win.refresh()
-    dispText.refresh()
+    disp_text.refresh()
 
     return sel_cursor
         
 def get_query(window):
     # sets up search prompt and text box
     # returns user-input query
-    dispText = window.subwin(1, len("Search: ") + 1, curses.LINES - 2, curses.COLS // 2 - 2 * len("Search: "))
-    dispText.addstr(0, 0, "Search: ")
-    dispText.refresh()
+    disp_text = window.subwin(1, len("Search: ") + 1, curses.LINES - 2, curses.COLS // 2 - 2 * len("Search: "))
+    disp_text.addstr(0, 0, "Search: ")
+    disp_text.refresh()
 
     search_win = window.subwin(1, curses.COLS // 2 - len("Search: "), curses.LINES - 2, curses.COLS // 2 - len("Search: "))
     search_box = Textbox(search_win)
@@ -169,27 +192,41 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
     
     status_pad = window.subpad(1, 18, curses.LINES // 2 + 1, curses.COLS // 2 - 9)
 
-    msg_splash(window, "ALL")
+    # interactive loop
+    while True:
+        msg_splash(window, "ALL")
+        query = get_query(window)
 
-    query = get_query(window)
+        loading_screen(window, "Searching All Collections...", True)
 
-    loading_screen(window, "Searching All Collections...", True)
+        for console in consoles:
+            status_pad.addstr(0, 0, "Searching %s..." % console)
+            status_pad.refresh()
+            for collection in collections[console]:
+                entries = parse_collection(collection.strip())
+                batch_search(raw_search_results, matched_results, [k[0] for k in entries], query, 5)
 
-    for console in consoles:
-        status_pad.addstr(0, 0, "Searching %s..." % console)
-        status_pad.refresh()
-        for collection in collections[console]:
-            entries = parse_collection(collection.strip())
-            batch_search(raw_search_results, matched_results, entries, query, 5)
+        sorted_results = sorted(matched_results, key=lambda x: x[1], reverse=True)
 
-    sorted_results = sorted(matched_results, key=lambda x: x[1], reverse=True)
+        for i in range(len(sorted_results)):
+            batch_results.append(sorted_results[i][0])
+        
+        loading_screen(window, "", False)
 
-    for i in range(len(sorted_results)):
-        batch_results.append(sorted_results[i][0])
-    
-    loading_screen(window, "", False)
+        nav_results(window, batch_results)
 
-    show_results(window, batch_results)
+        msg_pad = window.subpad(1, curses.COLS // 2, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to return | Press any other key to search") // 2)
+        msg_pad.addstr(0, 0, "Press ESC to return | Press any other key to search")
+        key = window.getch()
+        if key == curses.ascii.ESC:
+            break
+        else:
+            batch_results.clear()
+            raw_search_results.clear()
+            matched_results.clear()
+            msg_pad.clear()
+            msg_pad.refresh()
+    # end interactive loop
 
 def search_console(window, collections: list[str], console: str):
     loading_screen(window, "Parsing %s Collection(s)..." % console, True)
@@ -200,20 +237,32 @@ def search_console(window, collections: list[str], console: str):
 
     loading_screen(window, "", False)
 
-    msg_splash(window, console)
+    # interactive loop (exit key ESC?)
+    while True:
+        msg_splash(window, console)
 
-    query = get_query(window)
+        query = get_query(window)
 
-    search_results = search(entries, query, False)
+        search_results = search([k[0] for k in entries], query, False)
 
-    show_results(window, search_results)
+        nav_results(window, search_results)
+
+        msg_pad = window.subpad(1, curses.COLS // 2, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to return | Press any other key to search") // 2)
+        msg_pad.addstr(0, 0, "Press ESC to return | Press any other key to search")
+        key = window.getch()
+        if key == curses.ascii.ESC:
+            break
+        else:
+            msg_pad.clear()
+            msg_pad.refresh()
+    # end interactive loop
     
 def select_console(window, keys: list[str]):
     # returns key to dict of selected console
     title_screen(window)
     # display consoles to the right of the screen
     sel_cursor = 0
-    dispText = window.subwin(len(keys), 15, 5, curses.COLS - 25)
+    disp_text = window.subwin(len(keys), 15, 5, curses.COLS - 25)
     cursor_win = window.subwin(len(keys) + 1, 1, 5, curses.COLS - 26)
     ascii_art = window.subwin(7, 75, 17, 18)
 
@@ -221,9 +270,9 @@ def select_console(window, keys: list[str]):
     window.addstr(4, curses.COLS - 30, "Select a console", curses.A_UNDERLINE)
     cursor_win.addstr(sel_cursor, 0, ">")
     for i in range(len(keys)):
-        dispText.addstr(i, 2, keys[i], curses.A_BOLD)    
+        disp_text.addstr(i, 2, keys[i], curses.A_BOLD)    
     
-    dispText.refresh()
+    disp_text.refresh()
     ascii_art.refresh()
     window.refresh()
     
@@ -251,7 +300,6 @@ def select_console(window, keys: list[str]):
         cursor_win.refresh()
         ascii_art.refresh()
 
-    # enumerate #-of-games within each console
     return keys[sel_cursor]
 
 def select_collection(window, collections: dict[str, list[str]]):
@@ -262,6 +310,7 @@ def browse_collection(window, url: str):
     pass
 
 def title_screen(window):
+    window.clear()
     window.border(0)
     dispText = window.subpad(8, int(curses.COLS * 0.6), 1, 2)
     title = pyfiglet.figlet_format("ROMScraper")
@@ -279,21 +328,69 @@ def loading_screen(window, message: str, in_progress: bool):
         window.clear()
         window.border(0)
         title_screen(window)
-        window.refresh()   
+        window.refresh()  
 
-def show_results(window, search_results: list[str]):
+def nav_results(window, search_results: list[str]):
+    cursor_pad_pos = 0
+    cursor_offset = 0
+    
+    cursor_pad = window.subpad(curses.LINES - 9, 1, 8, 2)
+    cursor_pad.addstr(cursor_pad_pos, 0, ">")
+    disp_text = window.subpad(1, curses.COLS - 4, curses.LINES - 2, 3)
+    disp_text.addstr(0, 0, "%d results found" % len(search_results), curses.A_BOLD)
+    disp_text.refresh()
+
+    show_results(window, search_results, cursor_offset)
+
+    if len(search_results) > 0:
+        while True:
+            key = window.getch()
+            if key == curses.KEY_UP:
+                cursor_pad.clear()
+                if cursor_pad_pos > 0:
+                    cursor_pad_pos -= 1
+                elif cursor_offset > 0:
+                    cursor_offset -= 1
+                cursor_pad.addstr(cursor_pad_pos, 0, ">")
+                show_results(window, search_results, cursor_offset)
+            elif key == curses.KEY_DOWN:
+                cursor_pad.clear()
+                if cursor_pad_pos + 10 < curses.LINES - 1 and cursor_pad_pos < len(search_results) - 1:
+                    cursor_pad_pos += 1
+                elif cursor_offset + (curses.LINES - 10) < len(search_results):
+                    cursor_offset += 1
+                cursor_pad.addstr(cursor_pad_pos, 0, ">")
+                show_results(window, search_results, cursor_offset)
+            elif key == curses.KEY_ENTER or key == 10:
+                # open rom options or w/e
+                pass
+            elif key == curses.ascii.ESC:
+                break
+            cursor_pad.refresh()
+    else:
+        msg_splash(window, ": (")
+    
+    cursor_pad.clear()
+    cursor_pad.refresh()
+    disp_text.clear()
+    disp_text.refresh()
+
+def show_results(window, search_results: list[str], cur_pos: int):
     # nicely format search results (want to make tese results scrollable)
     # NOTE: will need to make results display within a subpad that's scrollable (not the base window)
-    if len(search_results) > 0:
-        window.addstr(curses.LINES - 2, 2, "%d results found" % len(search_results))
-        window.refresh()
-        for i in range(0, len(search_results)):
-            if i < curses.LINES - 10:
-                window.addstr(i + 8, 2, search_results[i])
-    else:
-        window.addstr(8, 3, "No results found")
+    rom_nav = window.subpad(curses.LINES - 10, curses.COLS - 5, 8, 4)
 
-    window.refresh()
+    if len(search_results) > 0:
+        rom_nav.clear()
+        rom_nav.refresh()
+        for i in range(cur_pos, len(search_results)):
+            if i - cur_pos < curses.LINES - 10:
+                rom_nav.addstr(i - cur_pos, 0, search_results[i])
+            rom_nav.refresh()
+    else:
+        rom_nav.clear()
+        rom_nav.addstr(0, 0, "No results found")
+        rom_nav.refresh()
 
 def msg_splash(window, msg: str):
     if len(msg) < 5:
@@ -316,16 +413,18 @@ def load_collections(collections: dict[str, list[str]], consoles: list[str]):
             collection_list = []
             i += 1
             while lines[i].startswith('https://archive.org/download/'):
-                if i < len(lines) - 1:
-                    collection_list.append(lines[i])
-                    i += 1
-                else:
+                collection_list.append(lines[i])
+                i += 1
+                if i >= len(lines) - 1:
                     break
             collections[str] = collection_list
             consoles.append(str)
     file.close()
     
 def parse_collection(url):
+    # TODO: need to be parsing hrefs alongside every entry in the collection
+    # this will alter how every other function uses the entries (indexing mostly)
+    # should be somewhat of a priority to minimize refactoring
     res = requests.get(url)
     res.raise_for_status()
     bs = bs4.BeautifulSoup(res.text, 'html.parser')
@@ -333,6 +432,7 @@ def parse_collection(url):
     rows = table.find_all('tr')
 
     strs = []
+    hrefs = []
     for val in rows:
         entry = val.find('td')
         for subval in entry:
@@ -346,7 +446,19 @@ def parse_collection(url):
                 or s.endswith('.gba') or s.endswith('.z64') \
                 or s.endswith('.32x') or s.endswith('.gg'):
                 strs.append(str(s))
+        h = entry.find('a').get('href')
+        if h.endswith('.zip') or h.endswith('.7z') \
+            or h.endswith('.rar') or h.endswith('.iso') \
+            or h.endswith('.nes') or h.endswith('.smc') \
+            or h.endswith('.sfc') or h.endswith('.smd') \
+            or h.endswith('.gba') or h.endswith('.z64') \
+            or h.endswith('.32x') or h.endswith('.gg'):
+            hrefs.append(url + h)
 
-    return strs
+    entries = []
+    for i in range(len(strs)):
+        entries.append([strs[i], hrefs[i]])
+
+    return entries
 
 main()
