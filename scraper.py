@@ -70,6 +70,8 @@ def search_method_sel(window):
     return sel_cursor
         
 def get_query(window):
+    # sets up search prompt and text box
+    # returns user-input query
     dispText = window.subwin(1, len("Search: ") + 1, curses.LINES - 2, curses.COLS // 2 - 2 * len("Search: "))
     dispText.addstr(0, 0, "Search: ")
     dispText.refresh()
@@ -83,6 +85,8 @@ def get_query(window):
 
 def search(entries: list[str], query: str):
     entries_set = []
+
+    # cleans/prunes each entry
     for e in entries:
         e = re.sub(r'[^\x00-\x7F]+', '', e)
         e = re.sub(r'@\w+', '', e)
@@ -101,8 +105,10 @@ def search(entries: list[str], query: str):
 
     query = query.lower()
 
+    # retrieves sorted list of (entry_index, sim_val) pairs
     results = get_similar_entries(entries, query, dataFrame, v)
 
+    # formats final string list with entry strings with >0.0 similarity
     search_results = []
     for i in range(len(results)):
         if results[i][1] > 0.0:
@@ -111,6 +117,7 @@ def search(entries: list[str], query: str):
     return search_results
 
 def get_similar_entries(entries: list[str], query: str, dataFrame: pd.DataFrame, v: TfidfVectorizer):
+    # vectorize query
     query = [query]
     q_vec = v.transform(query).toarray().reshape(dataFrame.shape[0])
 
@@ -118,10 +125,15 @@ def get_similar_entries(entries: list[str], query: str, dataFrame: pd.DataFrame,
 
     for i in range(len(entries)):
         if (np.linalg.norm(dataFrame.loc[:,i]) * np.linalg.norm(q_vec)) != 0:
+            # calculate cosine similarity
+            # divides parallel components of dataFrame and q_vec with their distance from each other to get similarity
             similar_entries[i] = np.dot(dataFrame.loc[:,i].values, q_vec) / (np.linalg.norm(dataFrame.loc[:,i]) * np.linalg.norm(q_vec))
         else:
             similar_entries[i] = -1
+    
+    # sort by similarity value (descending)
     sorted_entries = sorted(similar_entries.items(), key=lambda x: x[1], reverse=True)
+
     return sorted_entries
 
 def search_all(window, value: dict[str, list[str]]):
@@ -142,6 +154,7 @@ def search_console(window, collections: list[str], console: str):
 
     search_results = search(entries, query)
 
+    # nicely format search results (want to make tese results scrollable)
     if len(search_results) > 0:
         for i in range(0, len(search_results)):
             if i < curses.LINES - 10:
@@ -199,17 +212,7 @@ def select_console(window, keys: list[str]):
     return keys[sel_cursor]
 
 def search_collection(window, url: str):
-    collection_entries = parse_collection(url)
-    search_bar = window.subwin(1, curses.COLS - 4, curses.LINES - 4, 2)
-    search_bar.addstr(0, 0, "Search: ")
-    search_bar.border(0)
-    search_bar.refresh()
-
-    search_bar.edit()
-
-    # results = 
-
-    window.getch()
+    pass
 
 def select_collection(window, collections: dict[str, list[str]]):
     # returns url of selected collection
@@ -243,21 +246,8 @@ def console_splash(window, console: str):
     splash.addstr(0, 0, pyfiglet.figlet_format(console, font="small"))
     splash.refresh()
 
-def filter_entries(entries: list[str], search_str: str):
-    results = []
-    width = len(search_str)
-    for entry in entries:
-        for i in range(0, len(entry)):
-            if search_str.lower() in entry[i:width].lower():
-                results.append(entry)
-                break  
-            elif entry[i:width].lower() == search_str.lower():
-                results.append(entry)
-                break
-
-    return results
-
 def load_collections(collections: dict[str, list[str]], consoles: list[str]):
+    # load collections from file into dictionary and parse consoles into string list
     file = open("collections.txt", "r")
     lines = file.readlines()
 
@@ -285,6 +275,8 @@ def parse_collection(url):
         entry = val.find('td')
         for subval in entry:
             s = subval.getText()
+            # want to narrow parsed values to only those that are most likely game ROMs
+            # needs to be updated to include other ROM-formats if needed
             if s.endswith('.zip') or s.endswith('.7z') \
                 or s.endswith('.rar') or s.endswith('.iso') \
                 or s.endswith('.nes') or s.endswith('.smc') \
