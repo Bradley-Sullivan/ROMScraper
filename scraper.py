@@ -22,12 +22,9 @@ def curses_main(window):
     if sel_cursor == 0:
         search_all(window, collections, consoles)
     elif sel_cursor == 1:
-        url = select_collection(window, collections)
-        search_collection(window, url)
-    elif sel_cursor == 2:
         console_key = select_console(window, consoles)
         search_console(window, collections[console_key], console_key)
-    elif sel_cursor == 3:
+    elif sel_cursor == 2:
         url = select_collection(window, collections)
         browse_collection(window, url)
 
@@ -41,12 +38,11 @@ def search_method_sel(window):
 
     dispText.addstr(curses.LINES - 5 - 6, 1, "Select search method:", curses.A_UNDERLINE)
     dispText.addstr(curses.LINES - 4 - 6, 4, "Search All")
-    dispText.addstr(curses.LINES - 3 - 6, 4, "Search Specific Collection")
-    dispText.addstr(curses.LINES - 2 - 6, 4, "Search Specific Console")
-    dispText.addstr(curses.LINES - 1 - 6, 4, "Browse Collections")
+    dispText.addstr(curses.LINES - 3 - 6, 4, "Search Specific Console")
+    dispText.addstr(curses.LINES - 2 - 6, 4, "Browse Collection(s)")
     dispText.refresh()
 
-    cursor_win = window.subwin(5, 1, curses.LINES - 8, 4)
+    cursor_win = window.subwin(4, 1, curses.LINES - 8, 4)
     cursor_win.addstr(0, 0, ">")
 
     while True:
@@ -56,13 +52,13 @@ def search_method_sel(window):
             if sel_cursor > 0:
                 sel_cursor -= 1
             elif sel_cursor == 0:
-                sel_cursor = 3
+                sel_cursor = 2
             cursor_win.addstr(sel_cursor, 0, ">")
         elif key == curses.KEY_DOWN:
             cursor_win.clear()
-            if sel_cursor < 3:
+            if sel_cursor < 2:
                 sel_cursor += 1
-            elif sel_cursor == 3:
+            elif sel_cursor == 2:
                 sel_cursor = 0
             cursor_win.addstr(sel_cursor, 0, ">")
         elif key == curses.KEY_ENTER or key == 10:
@@ -89,6 +85,22 @@ def get_query(window):
     search_box.edit()
 
     return search_box.gather()
+
+def batch_search(raw_results, matched_results, entries: list[str], query: str, res_per_batch: int):
+    cur_valid_batch = 0
+
+    batch_search_results = search(entries, query, True)
+
+    for i in range(0, res_per_batch):
+        raw_results.append(batch_search_results[i])
+
+    for i in range(len(raw_results) - res_per_batch, len(raw_results)):
+        if raw_results[i][1] > 0.01:
+            matched_results.append(list(raw_results[i]))
+            cur_valid_batch += 1
+
+    for i in range(len(matched_results) - cur_valid_batch, len(matched_results)):
+        matched_results[i][0] = entries[matched_results[i][0]]
 
 def search(entries: list[str], query: str, batch: bool):
     entries_set = []
@@ -119,10 +131,7 @@ def search(entries: list[str], query: str, batch: bool):
             search_results.append(entries[results[i][0]])
 
     if batch:
-        if len(search_results) < 5:
-            return search_results
-        else:
-            return search_results[0:5]
+        return results
     else:
         return search_results
 
@@ -155,6 +164,8 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
     # compile the top five from each CONSOLE (not each collection) and then
     # sort the results by similarity after all collections have been searched
     batch_results = []
+    raw_search_results = []
+    matched_results = []
     
     status_pad = window.subpad(1, 18, curses.LINES // 2 + 1, curses.COLS // 2 - 9)
 
@@ -169,11 +180,14 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
         status_pad.refresh()
         for collection in collections[console]:
             entries = parse_collection(collection.strip())
-            batch_results.extend(search(entries, query, True))
+            batch_search(raw_search_results, matched_results, entries, query, 5)
 
+    sorted_results = sorted(matched_results, key=lambda x: x[1], reverse=True)
+
+    for i in range(len(sorted_results)):
+        batch_results.append(sorted_results[i][0])
+    
     loading_screen(window, "", False)
-
-    # search_results = search(entries, query)
 
     show_results(window, batch_results)
 
@@ -240,9 +254,6 @@ def select_console(window, keys: list[str]):
     # enumerate #-of-games within each console
     return keys[sel_cursor]
 
-def search_collection(window, url: str):
-    pass
-
 def select_collection(window, collections: dict[str, list[str]]):
     # returns url of selected collection
     pass
@@ -252,7 +263,7 @@ def browse_collection(window, url: str):
 
 def title_screen(window):
     window.border(0)
-    dispText = window.subpad(8, int(curses.COLS * 0.6), 2, 2)
+    dispText = window.subpad(8, int(curses.COLS * 0.6), 1, 2)
     title = pyfiglet.figlet_format("ROMScraper")
     dispText.addstr(0, 0, title)
     dispText.refresh()
@@ -272,7 +283,10 @@ def loading_screen(window, message: str, in_progress: bool):
 
 def show_results(window, search_results: list[str]):
     # nicely format search results (want to make tese results scrollable)
+    # NOTE: will need to make results display within a subpad that's scrollable (not the base window)
     if len(search_results) > 0:
+        window.addstr(curses.LINES - 2, 2, "%d results found" % len(search_results))
+        window.refresh()
         for i in range(0, len(search_results)):
             if i < curses.LINES - 10:
                 window.addstr(i + 8, 2, search_results[i])
