@@ -4,7 +4,6 @@ from curses.textpad import Textbox, rectangle
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 def main():
-
     curses.wrapper(curses_main)
 
 def curses_main(window):
@@ -13,14 +12,10 @@ def curses_main(window):
     consoles = []
     collections = {}
 
-    # NOTE: this is a shallow way to get the consoles and collections
-    # will need to also add a way to map each entry name within a colletion
-    # to it's url/href (preferably the entire url) (separate dictionary (key: entry, value: url))!!
     load_collections(collections, consoles)
 
     title_screen(window)
 
-    # interactive loop
     while True:
         sel_cursor = search_method_sel(window)
 
@@ -47,10 +42,6 @@ def curses_main(window):
         else:
             msg_pad.clear()
             msg_pad.refresh()
-    # end interactive loop
-
-    # window.border(0)
-    # window.getch()
 
 def search_method_sel(window):
     sel_cursor = 0
@@ -96,8 +87,7 @@ def search_method_sel(window):
     return sel_cursor
         
 def get_query(window):
-    # sets up search prompt and text box
-    # returns user-input query
+    # sets up search prompt and text box; returns user-input query
     disp_text = window.subwin(1, len("Search: ") + 1, curses.LINES - 2, curses.COLS // 2 - 2 * len("Search: "))
     disp_text.addstr(0, 0, "Search: ")
     disp_text.refresh()
@@ -180,19 +170,13 @@ def get_similar_entries(entries: list[str], query: str, dataFrame: pd.DataFrame,
 
 def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
     title_screen(window)
-    # TODO: try to implement a batch method of finding search results and 
-    # compiling the top five from each collection and sort afterwards
 
-    # NOTE: will most likely need a separate batch_search method which can 
-    # compile the top five from each CONSOLE (not each collection) and then
-    # sort the results by similarity after all collections have been searched
     batch_results = []
     raw_search_results = []
     matched_results = []
     
     status_pad = window.subpad(1, 18, curses.LINES // 2 + 1, curses.COLS // 2 - 9)
 
-    # interactive loop
     while True:
         msg_splash(window, "ALL")
         query = get_query(window)
@@ -226,7 +210,6 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
             matched_results.clear()
             msg_pad.clear()
             msg_pad.refresh()
-    # end interactive loop
 
 def search_console(window, collections: list[str], console: str):
     loading_screen(window, "Parsing %s Collection(s)..." % console, True)
@@ -237,7 +220,6 @@ def search_console(window, collections: list[str], console: str):
 
     loading_screen(window, "", False)
 
-    # interactive loop (exit key ESC?)
     while True:
         msg_splash(window, console)
 
@@ -255,13 +237,13 @@ def search_console(window, collections: list[str], console: str):
         else:
             msg_pad.clear()
             msg_pad.refresh()
-    # end interactive loop
     
 def select_console(window, keys: list[str]):
     # returns key to dict of selected console
     title_screen(window)
-    # display consoles to the right of the screen
+
     sel_cursor = 0
+    
     disp_text = window.subwin(len(keys), 15, 5, curses.COLS - 25)
     cursor_win = window.subwin(len(keys) + 1, 1, 5, curses.COLS - 26)
     ascii_art = window.subwin(7, 75, 17, 18)
@@ -376,8 +358,6 @@ def nav_results(window, search_results: list[str]):
     disp_text.refresh()
 
 def show_results(window, search_results: list[str], cur_pos: int):
-    # nicely format search results (want to make tese results scrollable)
-    # NOTE: will need to make results display within a subpad that's scrollable (not the base window)
     rom_nav = window.subpad(curses.LINES - 10, curses.COLS - 5, 8, 4)
 
     if len(search_results) > 0:
