@@ -88,15 +88,15 @@ def search(entries: list[str], query: str):
 
     # cleans/prunes each entry
     for e in entries:
-        e = re.sub(r'[^\x00-\x7F]+', '', e)
-        e = re.sub(r'@\w+', '', e)
-        e = re.sub(r'[^\w\s\d]', '', e)
-        e = re.sub(r'[%s]' % re.escape(string.punctuation), '', e)
-        e = re.sub(r'\s{2,}', '', e)
+        e = re.sub(r'[^\x00-\x7F]+', ' ', e)
+        e = re.sub(r'@\w+', ' ', e)
+        e = re.sub(r'[^\w\s\d]', ' ', e)
+        e = re.sub(r'[%s]' % re.escape(string.punctuation), ' ', e)
+        e = re.sub(r'\s{2,}', ' ', e)
         entries_set.append(e.lower())
         
 
-    v = TfidfVectorizer()
+    v = TfidfVectorizer(stop_words='english')
     
     X = v.fit_transform(entries)
     X = X.T.toarray()
@@ -251,16 +251,17 @@ def load_collections(collections: dict[str, list[str]], consoles: list[str]):
     file = open("collections.txt", "r")
     lines = file.readlines()
 
-    for i in range(0, len(lines) - 1):
+    for i in range(0, len(lines)):
         if lines[i].startswith("+"):
             str = lines[i][1:].strip()
+            consoles.append(str)
             collection_list = []
             i += 1
-            while lines[i].startswith('https') and i < len(lines) - 1:
-                collection_list.append(lines[i])
+            while i < len(lines):
+                if lines[i].startswith('https://archive.org/download/'):
+                    collection_list.append(lines[i])
                 i += 1
             collections[str] = collection_list
-            consoles.append(str)
     file.close()
     
 def parse_collection(url):
