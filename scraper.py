@@ -10,6 +10,9 @@ def curses_main(window):
     consoles = []
     collections = {}
 
+    # NOTE: this is a shallow way to get the consoles and collections
+    # will need to also add a way to map each entry name within a colletion
+    # to it's url/href (prefereably the entire url) (separate dictionary (key: entry, value: url))!!
     load_collections(collections, consoles)
 
     title_screen(window)
@@ -17,7 +20,7 @@ def curses_main(window):
     sel_cursor = search_method_sel(window)
 
     if sel_cursor == 0:
-        search_all(window, collections)
+        search_all(window, collections, consoles)
     elif sel_cursor == 1:
         url = select_collection(window, collections)
         search_collection(window, url)
@@ -27,6 +30,7 @@ def curses_main(window):
     elif sel_cursor == 3:
         url = select_collection(window, collections)
         browse_collection(window, url)
+
     window.border(0)
     window.getch()
 
@@ -67,6 +71,9 @@ def search_method_sel(window):
 
     cursor_win.clear()
     dispText.clear()
+    cursor_win.refresh()
+    dispText.refresh()
+
     return sel_cursor
         
 def get_query(window):
@@ -83,16 +90,13 @@ def get_query(window):
 
     return search_box.gather()
 
-def search(entries: list[str], query: str):
+def search(entries: list[str], query: str, batch: bool):
     entries_set = []
 
     # cleans/prunes each entry
     for e in entries:
-        e = re.sub(r'[^\x00-\x7F]+', ' ', e)
-        e = re.sub(r'@\w+', ' ', e)
         e = re.sub(r'[^\w\s\d]', ' ', e)
         e = re.sub(r'[%s]' % re.escape(string.punctuation), ' ', e)
-        e = re.sub(r'\s{2,}', ' ', e)
         entries_set.append(e.lower())
         
 
@@ -108,13 +112,19 @@ def search(entries: list[str], query: str):
     # retrieves sorted list of (entry_index, sim_val) pairs
     results = get_similar_entries(entries, query, dataFrame, v)
 
-    # formats final string list with entry strings with >0.0 similarity
+    # formats final string list with entry strings with >0.01 similarity
     search_results = []
     for i in range(len(results)):
-        if results[i][1] > 0.0:
+        if results[i][1] > 0.01:
             search_results.append(entries[results[i][0]])
 
-    return search_results
+    if batch:
+        if len(search_results) < 5:
+            return search_results
+        else:
+            return search_results[0:5]
+    else:
+        return search_results
 
 def get_similar_entries(entries: list[str], query: str, dataFrame: pd.DataFrame, v: TfidfVectorizer):
     # vectorize query
@@ -136,34 +146,53 @@ def get_similar_entries(entries: list[str], query: str, dataFrame: pd.DataFrame,
 
     return sorted_entries
 
-def search_all(window, value: dict[str, list[str]]):
-    pass
+def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
+    title_screen(window)
+    # TODO: try to implement a batch method of finding search results and 
+    # compiling the top five from each collection and sort afterwards
+
+    # NOTE: will most likely need a separate batch_search method which can 
+    # compile the top five from each CONSOLE (not each collection) and then
+    # sort the results by similarity after all collections have been searched
+    batch_results = []
+    
+    status_pad = window.subpad(1, 18, curses.LINES // 2 + 1, curses.COLS // 2 - 9)
+
+    msg_splash(window, "ALL")
+
+    query = get_query(window)
+
+    loading_screen(window, "Searching All Collections...", True)
+
+    for console in consoles:
+        status_pad.addstr(0, 0, "Searching %s..." % console)
+        status_pad.refresh()
+        for collection in collections[console]:
+            entries = parse_collection(collection.strip())
+            batch_results.extend(search(entries, query, True))
+
+    loading_screen(window, "", False)
+
+    # search_results = search(entries, query)
+
+    show_results(window, batch_results)
 
 def search_console(window, collections: list[str], console: str):
-    loading_screen(window, "Parsing Collections...", True)
+    loading_screen(window, "Parsing %s Collection(s)..." % console, True)
 
     entries = []
     for c in collections:
         entries.extend(parse_collection(c.strip()))
 
-    loading_screen(window, "Parsing Collections...", False)
+    loading_screen(window, "", False)
 
-    console_splash(window, console)
+    msg_splash(window, console)
 
     query = get_query(window)
 
-    search_results = search(entries, query)
+    search_results = search(entries, query, False)
 
-    # nicely format search results (want to make tese results scrollable)
-    if len(search_results) > 0:
-        for i in range(0, len(search_results)):
-            if i < curses.LINES - 10:
-                window.addstr(i + 8, 2, search_results[i])
-    else:
-        window.addstr(8, 3, "No results found")
-
-    window.refresh()
-    window.getch()
+    show_results(window, search_results)
     
 def select_console(window, keys: list[str]):
     # returns key to dict of selected console
@@ -239,12 +268,28 @@ def loading_screen(window, message: str, in_progress: bool):
         window.clear()
         window.border(0)
         title_screen(window)
-        window.refresh()
+        window.refresh()   
 
-def console_splash(window, console: str):
-    splash = window.subpad(12, 24, 3, curses.COLS - 26)
-    splash.addstr(0, 0, pyfiglet.figlet_format(console, font="small"))
-    splash.refresh()
+def show_results(window, search_results: list[str]):
+    # nicely format search results (want to make tese results scrollable)
+    if len(search_results) > 0:
+        for i in range(0, len(search_results)):
+            if i < curses.LINES - 10:
+                window.addstr(i + 8, 2, search_results[i])
+    else:
+        window.addstr(8, 3, "No results found")
+
+    window.refresh()
+
+def msg_splash(window, msg: str):
+    if len(msg) < 5:
+        splash = window.subpad(12, 24, 3, curses.COLS - 26)
+        splash.addstr(0, 0, pyfiglet.figlet_format(msg, font="small"))
+        splash.refresh()
+    else:
+        splash = window.subpad(12, 24, 3, curses.COLS - 26)
+        splash.addstr(0, 0, pyfiglet.figlet_format("N/A", font="small"))
+        splash.refresh()
 
 def load_collections(collections: dict[str, list[str]], consoles: list[str]):
     # load collections from file into dictionary and parse consoles into string list
@@ -254,14 +299,16 @@ def load_collections(collections: dict[str, list[str]], consoles: list[str]):
     for i in range(0, len(lines)):
         if lines[i].startswith("+"):
             str = lines[i][1:].strip()
-            consoles.append(str)
             collection_list = []
             i += 1
-            while i < len(lines):
-                if lines[i].startswith('https://archive.org/download/'):
+            while lines[i].startswith('https://archive.org/download/'):
+                if i < len(lines) - 1:
                     collection_list.append(lines[i])
-                i += 1
+                    i += 1
+                else:
+                    break
             collections[str] = collection_list
+            consoles.append(str)
     file.close()
     
 def parse_collection(url):
