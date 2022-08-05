@@ -1,29 +1,38 @@
-+NGC
-https://archive.org/download/gamecubeusaredump/
-+GBA
-https://archive.org/download/GameboyAdvanceRomCollectionByGhostware/
-+PS1
++PS1 : PlayStation 1
 https://archive.org/download/redump.psx/
 https://archive.org/download/redump.psx.p2/
 https://archive.org/download/redump.psx.p3/
 https://archive.org/download/redump.psx.p4/
-+N64
-https://archive.org/download/EFNintendo64Collection/Nintendo%2064/
-+NES
-https://archive.org/download/nes-romset-ultra-us/
-+SNES
-https://archive.org/download/SNES-Arquivista/
-+SGE
-https://archive.org/download/sega-genesis-romset-ultra-usa/
-+SGG
-https://archive.org/download/sega-game-gear-romset-ultra-us/
-+SDC
-https://archive.org/download/redump.dc.revival/
-+PS2
++PS2 : PlayStation 2
 https://archive.org/download/RedumpSonyPS2NTSCU/
 https://archive.org/download/RedumpSonyPS2NTSCUPart2/
-+PSP
++PSP : PlayStation Portable
 https://archive.org/download/redump.psp/
 https://archive.org/download/redump.psp.p2/
-+C64
++NES : Nintendo Entertainment System
+https://archive.org/download/nes-romset-ultra-us/
++SNES : Super Nintendo Entertainment System
+https://archive.org/download/SNES-Arquivista/
++GBX : Nintendo Game Boy
+https://archive.org/download/nointro.gb/
+https://archive.org/download/nointro.gbc/
+https://archive.org/download/GameboyAdvanceRomCollectionByGhostware/
++N64 : Nintendo 64
+https://archive.org/download/EFNintendo64Collection/Nintendo%2064/
++NGC : Nintendo GameCube
+https://archive.org/download/gamecubeusaredump/
++S32X : SEGA 32X
+https://archive.org/download/nointro.32x/
++SGE : SEGA Genesis/MegaDrive
+https://archive.org/download/sega-genesis-romset-ultra-usa/
+https://archive.org/download/nointro.md/
++SGG : SEGA Game Gear
+https://archive.org/download/sega-game-gear-romset-ultra-us/
++SDC : SEGA Dreamcast
+https://archive.org/download/redump.dc.revival/
++C64 : Commodore 64
 https://archive.org/download/commodore-64-romset-us/
++2600 : Atari 2600
+https://archive.org/download/nointro.atari-2600/
++BIOS : Emulator BIOS Packs
+https://archive.org/download/RetroarchSystemFiles/Retroarch-System/
