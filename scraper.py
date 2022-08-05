@@ -1,12 +1,25 @@
-import requests, bs4, curses, pyfiglet, time
+import requests, bs4, curses, pyfiglet, time, sys
 import re, string, numpy as np, pandas as pd
 from curses.textpad import Textbox, rectangle
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+if len(sys.argv) > 1:
+    OUTPUT_DIR = sys.argv[1]
+else:
+    OUTPUT_DIR = ""
+
 def main():
+    # consoles = []
+    # collections = {}
+
+    # load_collections(collections, consoles)
+
+    # print(consoles)
     curses.wrapper(curses_main)
 
 def curses_main(window):
+    # TODO: add view_rom function
+    # add option to edit output directory
     curses.curs_set(0)
 
     consoles = []
@@ -17,35 +30,37 @@ def curses_main(window):
     title_screen(window)
 
     while True:
-        sel_cursor = search_method_sel(window)
+        sel_cursor = main_menu(window)
 
         if sel_cursor == 0:
-            search_all(window, collections, consoles)
+            search_all(window, collections, [k[0] for k in consoles])
         elif sel_cursor == 1:
             console_key = select_console(window, consoles)
             if console_key != None:
                 search_console(window, collections[console_key], console_key)
         elif sel_cursor == 2:
-            url = select_collection(window, collections, consoles)
+            url = select_collection(window, collections, [k[0] for k in consoles])
             browse_collection(window, url)
+        elif sel_cursor == 3:
+            browse_favorites(window)
         elif sel_cursor == -1:
             break
 
         title_screen(window)
 
-def search_method_sel(window):
+def main_menu(window):
     sel_cursor = 0
-    disp_text = window.subwin(curses.LINES - 4, curses.COLS - 4, 2, 2)
 
-    disp_text.addstr(curses.LINES - 5 - 6, 1, "Select search method:", curses.A_UNDERLINE)
-    disp_text.addstr(curses.LINES - 4 - 6, 4, "Search All")
-    disp_text.addstr(curses.LINES - 3 - 6, 4, "Search Specific Console")
-    disp_text.addstr(curses.LINES - 2 - 6, 4, "Browse Collection(s)")
-    disp_text.refresh()
+    disp_text = window.subpad(5, curses.COLS - 9, curses.LINES - 5 - 8, 5)
 
-    cursor_win = window.subwin(4, 1, curses.LINES - 8, 4)
-    cursor_win.addstr(0, 0, ">")
-    cursor_win.refresh()
+    disp_text.addstr(0, 0, "Select search method:", curses.A_UNDERLINE)
+    disp_text.addstr(1, 1, "Search All")
+    disp_text.addstr(2, 1, "Search Specific Console")
+    disp_text.addstr(3, 1, "Browse Collection(s)")
+    disp_text.addstr(4, 1, "Browse Favorites")
+
+    cursor_pad = window.subpad(4, 2, curses.LINES - 5 - 7, 4)
+    cursor_pad.addstr(0, 0, ">")
 
     msg_pad = window.subpad(1, len("Press ESC to exit") + 1, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to exit") // 2)
     msg_pad.addstr(0, 0, "Press ESC to exit")
@@ -53,29 +68,27 @@ def search_method_sel(window):
     while True:
         key = window.getch()
         if key == curses.KEY_UP:
-            cursor_win.clear()
+            cursor_pad.clear()
             if sel_cursor > 0:
                 sel_cursor -= 1
             elif sel_cursor == 0:
-                sel_cursor = 2
-            cursor_win.addstr(sel_cursor, 0, ">")
+                sel_cursor = 3
+            cursor_pad.addstr(sel_cursor, 0, ">")
         elif key == curses.KEY_DOWN:
-            cursor_win.clear()
-            if sel_cursor < 2:
+            cursor_pad.clear()
+            if sel_cursor < 3:
                 sel_cursor += 1
-            elif sel_cursor == 2:
+            elif sel_cursor == 3:
                 sel_cursor = 0
-            cursor_win.addstr(sel_cursor, 0, ">")
+            cursor_pad.addstr(sel_cursor, 0, ">")
         elif key == curses.KEY_ENTER or key == 10:
             break
         elif key == curses.ascii.ESC:
             return -1
-        cursor_win.refresh()
+        cursor_pad.refresh()
 
-    cursor_win.clear()
+    cursor_pad.clear()
     disp_text.clear()
-    cursor_win.refresh()
-    disp_text.refresh()
 
     return sel_cursor
         
@@ -173,6 +186,8 @@ def get_similar_entries(entries: list[str], query: str, dataFrame: pd.DataFrame,
 def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
     title_screen(window)
 
+    key = ''
+
     batch_results = []
     raw_search_results = []
     matched_results = []
@@ -180,9 +195,12 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
     
     status_pad = window.subpad(1, 18, curses.LINES // 2 + 1, curses.COLS // 2 - 9)
 
+    msg_splash(window, "ALL")
+    
+    query = get_query(window)
+
     while True:
         msg_splash(window, "ALL")
-        query = get_query(window)
 
         loading_screen(window, "Searching All Collections...", True)
 
@@ -200,28 +218,36 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
 
         loading_screen(window, "", False)
 
-        rom_sel = nav_results(window, batch_results)
+        while True:
+            rom_sel = nav_results(window, batch_results)
 
-        if rom_sel == None:
-            msg_pad = window.subpad(1, curses.COLS // 2, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to return | Press any other key to search") // 2)
-            msg_pad.addstr(0, 0, "Press ESC to return | Press any other key to search")
+            if rom_sel != None:
+                for r in roms:
+                    if r[0] == rom_sel:
+                        rom_options(window, roms, rom_sel)
+                        break
+            msg = "Press ESC to return | Press S to search | Press any other key to continue"
+            msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
+            msg_pad.addstr(0, 0, msg)
+
             key = window.getch()
-            if key == curses.ascii.ESC:
-                return
-            else:
-                batch_results.clear()
-                raw_search_results.clear()
-                matched_results.clear()
-                msg_pad.clear()
-                msg_pad.refresh()
+
+            msg_pad.clear()
+            msg_pad.refresh()
+
+            if key == ord('s') or key == ord('S') or key == curses.ascii.ESC:
+                break
+        if key == curses.ascii.ESC:
+            break
         else:
-            for r in roms:
-                if r[0] == rom_sel:
-                    rom_options(window, roms, rom_sel)
-                    break
-            pass
+            batch_results.clear()
+            raw_search_results.clear()
+            matched_results.clear()
+            query = get_query(window)
 
 def search_console(window, collections: list[str], console: str):
+    key = ''
+
     loading_screen(window, "Parsing %s Collection(s)..." % console, True)
 
     entries = []
@@ -230,81 +256,82 @@ def search_console(window, collections: list[str], console: str):
 
     loading_screen(window, "", False)
 
+    msg_splash(window, console)
+
+    query = get_query(window)
+
     while True:
         msg_splash(window, console)
-
-        query = get_query(window)
-
         search_results = search([k[0] for k in entries], query, False)
 
-        rom_sel = nav_results(window, search_results)
+        while True:
+            rom_sel = nav_results(window, search_results)
 
-        if rom_sel == None:
-            msg_pad = window.subpad(1, curses.COLS // 2, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to return | Press any other key to search") // 2)
-            msg_pad.addstr(0, 0, "Press ESC to return | Press any other key to search")
+            if rom_sel != None:
+                for e in entries:
+                    if e[0] == rom_sel:
+                        rom_options(window, entries, rom_sel)
+                        break
+            msg = "Press ESC to return | Press S to search | Press any other key to continue"
+            msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
+            msg_pad.addstr(0, 0, msg)
+            
             key = window.getch()
-            if key == curses.ascii.ESC:
-                return
-            else:
-                msg_pad.clear()
-                msg_pad.refresh()
+
+            msg_pad.clear()
+            msg_pad.refresh()
+
+            if key == ord('s') or key == ord('S') or key == curses.ascii.ESC:
+                break
+        if key == curses.ascii.ESC:
+            break
         else:
-            # donwload rom/rom options menu
-            for e in entries:
-                if e[0] == rom_sel:
-                    rom_options(window, entries, rom_sel)
-                    break
-            pass        
+            query = get_query(window)
     
-def select_console(window, keys: list[str]):
+def select_console(window, keys: list[list[str]]):
     # returns key to dict of selected console
     title_screen(window)
 
     sel_cursor = 0
-    
-    disp_text = window.subwin(len(keys), 15, 5, curses.COLS - 25)
-    cursor_win = window.subwin(len(keys) + 1, 1, 5, curses.COLS - 26)
-    ascii_art = window.subwin(7, 75, 17, 18)
+
+    disp_text = window.subpad(len(keys) + 1, curses.COLS // 2, 12, curses.COLS // 2)
+    cursor_pad = window.subpad(len(keys), 2, 13, curses.COLS // 2)
+    ascii_art = window.subpad(7, 32, 17, curses.COLS // 8)
     msg_pad = window.subpad(1, len("Press ESC to return to main menu") + 1, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to return to main menu") // 2)
     
     msg_pad.addstr(0, 0, "Press ESC to return to main menu")
-    ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor]))
-    window.addstr(4, curses.COLS - 30, "Select a console", curses.A_UNDERLINE)
-    cursor_win.addstr(sel_cursor, 0, ">")
+    ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor][0]))
+    disp_text.addstr(0, 0, "Select a console:", curses.A_UNDERLINE)
+    cursor_pad.addstr(sel_cursor, 0, ">")
     for i in range(len(keys)):
-        disp_text.addstr(i, 2, keys[i], curses.A_BOLD)    
-    
-    disp_text.refresh()
-    ascii_art.refresh()
-    window.refresh()
-    
+        disp_text.addstr(i + 1, 2, keys[i][1], curses.A_BOLD)    
 
     while True:
         key = window.getch()
         if key == curses.KEY_UP:
-            cursor_win.clear()
+            cursor_pad.clear()
             if sel_cursor > 0:
                 sel_cursor -= 1
             elif sel_cursor == 0:
                 sel_cursor = len(keys) - 1
-            cursor_win.addstr(sel_cursor, 0, ">")
-            ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor]))
+            cursor_pad.addstr(sel_cursor, 0, ">")
+            ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor][0]))
         elif key == curses.KEY_DOWN:
-            cursor_win.clear()
+            cursor_pad.clear()
             if sel_cursor < len(keys) - 1:
                 sel_cursor += 1
             elif sel_cursor == len(keys) - 1:
                 sel_cursor = 0
-            cursor_win.addstr(sel_cursor, 0, ">")
-            ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor]))
+            cursor_pad.addstr(sel_cursor, 0, ">")
+            ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor][0]))
         elif key == curses.KEY_ENTER or key == 10:
             break
         elif key == curses.ascii.ESC:
             return None
-        cursor_win.refresh()
+        cursor_pad.refresh()
         ascii_art.refresh()
 
-    return keys[sel_cursor]
+    return keys[sel_cursor][0]
 
 def select_collection(window, collections: dict[str, list[str]], consoles: list[str]):
     title_screen(window)
@@ -335,18 +362,25 @@ def browse_collection(window, url: str):
 
         rom_sel = nav_results(window, [k[0] for k in entries])
 
-        if rom_sel == None:
-            msg_pad = window.subpad(1, curses.COLS // 2, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to return | Press any other key to search") // 2)
-            msg_pad.addstr(0, 0, "Press ESC to return | Press any other key to search")
-            key = window.getch()
-            if key == curses.ascii.ESC:
-                return
-            else:
-                msg_pad.clear()
-                msg_pad.refresh()
-        else:
+        if rom_sel != None:
             rom_options(window, entries, rom_sel)
-            pass
+        else:
+            break
+
+def browse_favorites(window):
+    title_screen(window)
+
+    entries = parse_favorites()
+
+    while True:
+        msg_splash(window, "F A V")
+
+        rom_sel = nav_results(window, [k[0] for k in entries])
+
+        if rom_sel != None:
+            rom_options(window, entries, rom_sel)
+        else:
+            break
 
 def rom_options(window, entries: list[str], sel: str):
 
@@ -359,7 +393,7 @@ def rom_options(window, entries: list[str], sel: str):
 
     msg = "Download (D) | Favorite (F) | View Info (I) | Back (B)"
     msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
-    msg_pad.addstr(0, 0, msg)
+    msg_pad.addstr(0, 0, msg, curses.A_BOLD)
 
     key = window.getch()
 
@@ -388,7 +422,7 @@ def download_rom(window, rom: list[str]):
 
     progress_pad = window.subpad(2, len(p) + 1, (curses.LINES // 2) + 1, curses.COLS // 2 - len(p) // 2)
 
-    with open(rom[0], "wb") as f:
+    with open(OUTPUT_DIR + rom[0], "wb") as f:
         for chunk in res.iter_content(chunk_size=1024):
             progress_pad.addstr(0, 0, "%s / %s | %.2f%%" % (str(cur_dl_size), str(rom_byte_size), (cur_dl_size / rom_byte_size) * 100))
             if chunk:
@@ -407,8 +441,8 @@ def favorite_rom(window, rom: list[str]):
     title_screen(window)
 
     loading_screen(window, "Added to Favorites", True)
-    open("favorites.txt", "a").write(rom[0] + " : " + rom[1] + "\n")
-    time.sleep(1)
+    open("favorites.txt", "a").write(rom[0] + " ; " + rom[1] + "\n")
+    time.sleep(0.75)
     loading_screen(window, "", False)
 
 def title_screen(window):
@@ -494,7 +528,7 @@ def show_results(window, search_results: list[str], cur_offset: int):
         rom_nav.refresh()
 
 def msg_splash(window, msg: str):
-    if len(msg) < 5:
+    if len(msg) < 6:
         splash = window.subpad(12, 24, 3, curses.COLS - 26)
         splash.addstr(0, 0, pyfiglet.figlet_format(msg, font="small"))
         splash.refresh()
@@ -510,7 +544,7 @@ def load_collections(collections: dict[str, list[str]], consoles: list[str]):
 
     for i in range(0, len(lines)):
         if lines[i].startswith("+"):
-            str = lines[i][1:].strip()
+            console = lines[i][1:].strip().split(" : ")
             collection_list = []
             i += 1
             while lines[i].startswith('https://archive.org/download/'):
@@ -518,10 +552,25 @@ def load_collections(collections: dict[str, list[str]], consoles: list[str]):
                 i += 1
                 if i >= len(lines) - 1:
                     break
-            collections[str] = collection_list
-            consoles.append(str)
+            collections[console[0]] = collection_list
+            consoles.append(console)
     file.close()
-    
+
+def parse_favorites():
+    # parse favorites.txt into dictionary
+    file = open("favorites.txt", "r")
+    lines = file.readlines()
+
+    entries = []
+
+    for line in lines:
+        entries.append(line.split(" ; "))
+    file.close()
+
+    print(entries)
+
+    return entries
+
 def parse_collection(url):
     # TODO: need to be parsing hrefs alongside every entry in the collection
     # this will alter how every other function uses the entries (indexing mostly)
