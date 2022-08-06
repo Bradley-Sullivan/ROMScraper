@@ -9,15 +9,14 @@ else:
     OUTPUT_DIR = ""
 
 def main():
-    # consoles = []
-    # collections = {}
-
-    # load_collections(collections, consoles)
-
-    # print(consoles)
     curses.wrapper(curses_main)
 
 def curses_main(window):
+    r"""Main program entry point. Presents a main menu and diverts program flow accoring to user selection.
+
+    :param window: curses window object (`stdscr`)
+    :return: None
+    """
     # TODO: add view_rom function
     # add option to edit output directory
     curses.curs_set(0)
@@ -49,6 +48,11 @@ def curses_main(window):
         title_screen(window)
 
 def main_menu(window):
+    r"""Main UI menu
+
+    :param window: curses window object (`stdscr`)
+    :return: `int` of user selection
+    """
     sel_cursor = 0
 
     disp_text = window.subpad(5, curses.COLS - 9, curses.LINES - 5 - 8, 5)
@@ -93,7 +97,11 @@ def main_menu(window):
     return sel_cursor
         
 def get_query(window):
-    # sets up search prompt and text box; returns user-input query
+    r"""Simple UI for displaying search prompt and collecting user-input search query
+    
+    :param window: curses window object (`stdscr`)
+    :return: `String` obtained from curses Textpad object containing user-input query
+    """
     disp_text = window.subwin(1, len("Search: ") + 1, curses.LINES - 2, curses.COLS // 2 - 2 * len("Search: "))
     disp_text.addstr(0, 0, "Search: ")
     disp_text.refresh()
@@ -106,6 +114,18 @@ def get_query(window):
     return search_box.gather()
 
 def batch_search(raw_results, matched_results, parsed_entries: list[list[str]], query: str, res_per_batch: int):
+    r"""Performs a specialized search of provided entries retaining only the n-most similar results of each search.
+    Main helper function which helps optimize the searching of ALL collections for ALL consoles.
+
+    :param raw_results: `Tuple` containing the index of each entry paired with its respective similarity value
+    :param matched_results: `List` used as a sort of accumulator which collects the n-most similar search results.
+    Allows each successful batch to be sorted by similarity as it is mutable
+    :param parsed_entries: `List` of string lists used to assign each search result to its corresponding ROM name
+    :param query: `String` of user-supplied search term(s)
+    :param res_per_batch: Specifies the n-most similar search results to retain from each batch
+    :return: `List` of string lists containing each ROM's name with its similarity value from the newest batch
+    to be sorted amongst the rest of the accumulated results
+    """
     cur_valid_batch = 0
     roms = []
 
@@ -123,14 +143,19 @@ def batch_search(raw_results, matched_results, parsed_entries: list[list[str]], 
 
     for i in range(len(matched_results) - cur_valid_batch, len(matched_results)):
         matched_results[i][0] = entries[matched_results[i][0]]
-        for e in parsed_entries:
-            if e[0] == matched_results[i][0]:
-                roms.append(e)
-                break
     
-    return roms
+    return matched_results
 
 def search(entries: list[str], query: str, batch: bool):
+    r"""TF-IDF weighted search engine to find best match(es) for a query against supplied entries.
+
+    :param entries: `List` of strings containing every valid search candidate
+    :param query: `String` of user-supplied search term(s)
+    :param batch: `Boolean` switch used to supply `batch_search()` with relevant results
+    :return: If `batch == True` returns raw `Tuple` of entry indices paired with similarity values.
+    Else If `batch == False` returns `List` of entry strings (ROM names) corresponding to search results
+    with similarity >0.01
+    """
     entries_set = []
 
     # cleans/prunes each entry
@@ -164,6 +189,15 @@ def search(entries: list[str], query: str, batch: bool):
         return search_results
 
 def get_similar_entries(entries: list[str], query: str, dataFrame: pd.DataFrame, v: TfidfVectorizer):
+    r"""Vectorizes supplied search query and calculates cosine similarity values for each entry in TF-IDF matrix.
+    Sorts compiled entries based on similarity.
+
+    :param entries: `List` of strings containing every search candidate used as looping bound
+    :param query: `String` query used in similarity calculations
+    :param dataFrame: `pd.DataFrame` containing vectorized entries for similarity calculations
+    :param v: `TfidfVectorizer` used to vectorize query
+    :return: `Tuple` containing entry indices and similarity values
+    """
     # vectorize query
     query = [query]
     q_vec = v.transform(query).toarray().reshape(dataFrame.shape[0])
@@ -184,6 +218,14 @@ def get_similar_entries(entries: list[str], query: str, dataFrame: pd.DataFrame,
     return sorted_entries
 
 def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
+    r"""Search UI for obtaining a search query and compiling similarity-sorted search results
+    for all consoles and all collections, results navigation, and basic interactions. 
+
+    :param window: curses window object (`stdscr`)
+    :param collections: `Dictionary` of all ROM collections keyed by abbrev. console names
+    :param consoles: `List` of strings containing abbrev. console names
+    :return: None
+    """
     title_screen(window)
 
     key = ''
@@ -246,6 +288,14 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
             query = get_query(window)
 
 def search_console(window, collections: list[str], console: str):
+    r"""Search UI for obtaining a search query and processing per-console searches, result
+    navigation, and basic interactions.
+
+    :param window: curses window object (`stdscr`)
+    :param collections: `List` of strings containing all archive.org/ URLs for a particular console
+    :param console: `String` of abbrev. console name used for splash message
+    :return: None
+    """
     key = ''
 
     loading_screen(window, "Parsing %s Collection(s)..." % console, True)
@@ -268,10 +318,7 @@ def search_console(window, collections: list[str], console: str):
             rom_sel = nav_results(window, search_results)
 
             if rom_sel != None:
-                for e in entries:
-                    if e[0] == rom_sel:
-                        rom_options(window, entries, rom_sel)
-                        break
+                rom_options(window, entries, rom_sel)
             msg = "Press ESC to return | Press S to search | Press any other key to continue"
             msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
             msg_pad.addstr(0, 0, msg)
@@ -290,6 +337,12 @@ def search_console(window, collections: list[str], console: str):
     
 def select_console(window, keys: list[list[str]]):
     # returns key to dict of selected console
+    r"""Selection UI for choosing a console to search.
+
+    :param window: curses window object (`stdscr`)
+    :param keys: `List` of string lists containing abbrev. and full console names
+    :return: Abbreviated console name `string`
+    """
     title_screen(window)
 
     sel_cursor = 0
@@ -334,6 +387,13 @@ def select_console(window, keys: list[list[str]]):
     return keys[sel_cursor][0]
 
 def select_collection(window, collections: dict[str, list[str]], consoles: list[str]):
+    r"""Selection UI for choosing a ROM collection to browse.
+
+    :param window: curses window object (`stdscr`)
+    :param collections: `Dictionary` of collections keyed by console name abbrev.
+    :param consoles: `List` of abbrev. console name strings used to access collection dictionary
+    :return: `String` of nav_results() output denoting selected collection URL
+    """
     title_screen(window)
     # returns url of selected collection
     collection_list = []
@@ -344,11 +404,15 @@ def select_collection(window, collections: dict[str, list[str]], consoles: list[
 
     msg_splash(window, "COL")
 
-    sel = nav_results(window, collection_list)
-
-    return sel
+    return nav_results(window, collection_list)
 
 def browse_collection(window, url: str):
+    r"""Browse UI for individual ROM collection specified by provided URL string.
+
+    :param window: curses window object (`stdscr`)
+    :param url: `String` denoting the URL of collection to browse
+    :return: None
+    """
     title_screen(window)
 
     loading_screen(window, "Parsing Collection...", True)
@@ -368,6 +432,11 @@ def browse_collection(window, url: str):
             break
 
 def browse_favorites(window):
+    r"""Browse ROMs located within `favorites.txt`.
+    
+    :param window: curses window object (`stdscr`)
+    :return: None
+    """
     title_screen(window)
 
     entries = parse_favorites()
@@ -382,8 +451,15 @@ def browse_favorites(window):
         else:
             break
 
-def rom_options(window, entries: list[str], sel: str):
+def rom_options(window, entries: list[list[str]], sel: str):
+    r"""Displays simple option menu and processes corresponding input. Options
+    include downloading, favoriting, viewing ROM info, and returning.
 
+    :param window: curses window object (`stdscr`)
+    :param entries: `List` of string lists containing ROM name and download link
+    :param sel: `String` denoting the name of the ROM in subject
+    :return: None
+    """
     for e in entries:
         if e[0] == sel:
             rom = e
@@ -409,6 +485,13 @@ def rom_options(window, entries: list[str], sel: str):
     msg_pad.refresh()
 
 def download_rom(window, rom: list[str]):
+    r"""Issues a GET request for ROM file through its download link.
+
+    :param window: curses window object (`stdscr`)
+    :param rom: `List` of string lists containing ROM name and download link
+    :return: None
+    """
+    
     title_screen(window)
     msg_splash(window, "DL")
 
@@ -437,7 +520,13 @@ def download_rom(window, rom: list[str]):
 
     loading_screen(window, "", False)
 
-def favorite_rom(window, rom: list[str]):
+def favorite_rom(window, rom: list[list[str]]):
+    r"""Appends `favorites.txt` file with specified ROM name and download link.
+
+    :param window: curses window object (`stdscr`)
+    :param rom: `List` of string lists containing ROM name and download link
+    :return: None
+    """
     title_screen(window)
 
     loading_screen(window, "Added to Favorites", True)
@@ -446,6 +535,11 @@ def favorite_rom(window, rom: list[str]):
     loading_screen(window, "", False)
 
 def title_screen(window):
+    r"""Cleanly clears and preps window to display a pyfiglet title splash.
+
+    :param window: curses window object (`stdscr`)
+    :return: None
+    """
     window.clear()
     window.border(0)
     dispText = window.subpad(8, int(curses.COLS * 0.6), 1, 2)
@@ -455,6 +549,14 @@ def title_screen(window):
     window.refresh()
 
 def loading_screen(window, message: str, in_progress: bool):
+    r"""Clears and formats terminal for clean display of loading message(s).
+
+    :param window: curses window object (`stdscr`)
+    :param message: String message to be displayed
+    :param in_progress: `Bool` which allows for clean init'ing and cleaning up
+    before/during and after loading message display
+    :return: None
+    """
     if in_progress:
         window.clear()
         window.border(0)
@@ -467,6 +569,13 @@ def loading_screen(window, message: str, in_progress: bool):
         window.refresh()
 
 def nav_results(window, search_results: list[str]):
+    r"""Navigates list of results in a scrollable fashion.
+
+    :param window: curses window object (`stdscr`)
+    :param search_results: `String` list containing results to navigate
+    :return: Upon `ENTER` keypress returns selected entry string. Otherwise
+    returns `None`
+    """
     cursor_pad_pos = 0
     cursor_offset = 0
     
@@ -513,6 +622,15 @@ def nav_results(window, search_results: list[str]):
     return None
 
 def show_results(window, search_results: list[str], cur_offset: int):
+    r"""Displays navigable results to the terminal.
+
+    :param window: curses window object (`stdscr`)
+    :param search_results: `List` of strings containing results to display
+    :param cur_offset: Results offset relative to the 1st result displayed used
+    for displaying results outside viewable window. Meant to be used in tandem with
+    `nav_results()`
+    :return: None
+    """
     rom_nav = window.subpad(curses.LINES - 10, curses.COLS - 5, 8, 4)
 
     if len(search_results) > 0:
@@ -528,6 +646,12 @@ def show_results(window, search_results: list[str], cur_offset: int):
         rom_nav.refresh()
 
 def msg_splash(window, msg: str):
+    r"""Displays short `pyfiglet` splash message of 5 characters or less to top-right of terminal.
+    
+    :param window: curses window object (`stdscr`)
+    :param msg: `String` containing the message to display
+    :return: None
+    """
     if len(msg) < 6:
         splash = window.subpad(12, 24, 3, curses.COLS - 26)
         splash.addstr(0, 0, pyfiglet.figlet_format(msg, font="small"))
@@ -537,8 +661,15 @@ def msg_splash(window, msg: str):
         splash.addstr(0, 0, pyfiglet.figlet_format("N/A", font="small"))
         splash.refresh()
 
-def load_collections(collections: dict[str, list[str]], consoles: list[str]):
+def load_collections(collections: dict[str, list[str]], consoles: list[list[str]]):
     # load collections from file into dictionary and parse consoles into string list
+    r"""Loads all archive.org collections from `collections.txt` into a dictionary
+    with ROM name values keyed with their respective consoles.
+
+    :param collections: `Dictionary` to store parsed data
+    :param consoles: `List` of string lists containing abbrev. and full console names
+    :return: None    
+    """    
     file = open("collections.txt", "r")
     lines = file.readlines()
 
@@ -557,7 +688,11 @@ def load_collections(collections: dict[str, list[str]], consoles: list[str]):
     file.close()
 
 def parse_favorites():
-    # parse favorites.txt into dictionary
+    r"""Parses `favorites.txt` file similarly to `parse_collection()`.
+    
+    :return: :list[list[str]]: `List` of every favorite ROM paired with its download link
+    """
+
     file = open("favorites.txt", "r")
     lines = file.readlines()
 
@@ -572,6 +707,11 @@ def parse_favorites():
     return entries
 
 def parse_collection(url):
+    r"""Parses archive.org collections.
+
+    :param url: URL string of collection to parse
+    :return: :list[list[str]]: `List` of every ROM entry paired with its download link
+    """
     # TODO: need to be parsing hrefs alongside every entry in the collection
     # this will alter how every other function uses the entries (indexing mostly)
     # should be somewhat of a priority to minimize refactoring
