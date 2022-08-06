@@ -17,8 +17,6 @@ def curses_main(window):
     :param window: curses window object (`stdscr`)
     :return: None
     """
-    # TODO: add view_rom function
-    # add option to edit output directory
     curses.curs_set(0)
 
     consoles = []
@@ -123,8 +121,7 @@ def batch_search(raw_results, matched_results, parsed_entries: list[list[str]], 
     :param parsed_entries: `List` of string lists used to assign each search result to its corresponding ROM name
     :param query: `String` of user-supplied search term(s)
     :param res_per_batch: Specifies the n-most similar search results to retain from each batch
-    :return: `List` of string lists containing each ROM's name with its similarity value from the newest batch
-    to be sorted amongst the rest of the accumulated results
+    :return: `List` of string lists containing the names of each ROM from a successful batch
     """
     cur_valid_batch = 0
     roms = []
@@ -143,8 +140,12 @@ def batch_search(raw_results, matched_results, parsed_entries: list[list[str]], 
 
     for i in range(len(matched_results) - cur_valid_batch, len(matched_results)):
         matched_results[i][0] = entries[matched_results[i][0]]
+        for e in parsed_entries:
+            if e[0] == matched_results[i][0]:
+                roms.append(e)
+                break
     
-    return matched_results
+    return roms
 
 def search(entries: list[str], query: str, batch: bool):
     r"""TF-IDF weighted search engine to find best match(es) for a query against supplied entries.
