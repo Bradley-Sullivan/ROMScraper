@@ -17,5 +17,19 @@ Search options include searching all provided collections, searching by specific
 ![ROMScraper_Favorites](https://user-images.githubusercontent.com/77858921/183275684-70991328-b03e-461d-b106-b7756aa36680.png)
 
 ## Tested Development Environments
+- Ubuntu 22.04
+  - Python v3.10.4
+  
+## Configuration and Usage
+- Configuration
+  - `collections.txt`
 
-## Usage
+    - This program relies on `archive.org/download/` collections that are placed in the text file `collections.txt`. This is where it pulls the archives that it will scrape, parse, and download from.
+
+    - If you wish to organize each collection by console, or some other designation, each URL will need to be placed on its own line after a header in the format `+<Abbrev. Title> : <Full title>`. Abbreviated titles are used internally and as decorative UI splashes, where full titles are used for menu selections.
+  
+ - Usage
+ 
+    - Navigate to program directory and execute `python3 scraper.py [output_dir]`
+ 
+    - If no output directory is specified all downloaded files will be stored alongside `scraper.py`
