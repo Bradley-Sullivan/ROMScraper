@@ -2,8 +2,6 @@
 ## Description
 ROMScraper is a tool used to scrape game console ROMs (and other files) from `archive.org` collections that can then be searched and downloaded. 
 
-The UI was designed using the Python curses module. HTML parsing/scraping was built using the requests and BeautifulSoup Python modules. Search engine was constructed using the Python scikit_learn, panda, and numpy modules.
-
 Search options include searching all provided collections, searching by specific consoles, browsing specific collecitons, and browsing favorited ROMs/other files.
 
 ![ROMScraper_Main_menu](https://user-images.githubusercontent.com/77858921/183275665-9f096d00-1a5c-4010-8cb5-9c1b938263ba.png)
@@ -27,5 +25,7 @@ Search options include searching all provided collections, searching by specific
  - Usage
  
     - Navigate to program directory and execute `python3 scraper.py [output_dir]`
- 
+
+      - NOTE: Before running the program, make sure that the terminal window is sized large enough (roughly 35 lines by 135 columns) or fullscreen
+
     - If no output directory is specified all downloaded files will be stored alongside `scraper.py`
