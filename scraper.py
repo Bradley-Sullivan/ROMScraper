@@ -8,10 +8,20 @@ if len(sys.argv) > 1:
 else:
     OUTPUT_DIR = ""
 
+class ROM:
+    def __init__(self, console, collection, url, name):
+        self.console = console
+        self.collection = collection
+        self.url = url
+        self.name = name
+
 def main():
     curses.wrapper(curses_main)
 
 def curses_main(window):
+    # TODO: implement view rom info (console, collection, size, checksums)
+    # redump.org checksum verification after download?
+
     r"""Main program entry point. Presents a main menu and diverts program flow accoring to user selection.
 
     :param window: curses window object (`stdscr`)
@@ -111,64 +121,48 @@ def get_query(window):
 
     return search_box.gather()
 
-def batch_search(raw_results, matched_results, parsed_entries: list[list[str]], query: str, res_per_batch: int):
+def batch_search(parsed_entries: list[list[str]], query: str, res_per_batch: int):
     r"""Performs a specialized search of provided entries retaining only the n-most similar results of each search.
     Main helper function which helps optimize the searching of ALL collections for ALL consoles.
 
-    :param raw_results: `Tuple` containing the index of each entry paired with its respective similarity value
-    :param matched_results: `List` used as a sort of accumulator which collects the n-most similar search results.
-    Allows each successful batch to be sorted by similarity as it is mutable
-    :param parsed_entries: `List` of string lists used to assign each search result to its corresponding ROM name
+    :param parsed_entries: `List` of string lists used to assign each search result to its corresponding ROM name and URL
     :param query: `String` of user-supplied search term(s)
     :param res_per_batch: Specifies the n-most similar search results to retain from each batch
-    :return: `List` of string lists containing the names of each ROM from a successful batch
+    :return: `List` of string lists containing the names of each ROM, its download link, and its similarity value to be sorted later
     """
-    cur_valid_batch = 0
     roms = []
 
-    entries = [k[0] for k in parsed_entries]
-
-    batch_search_results = search(entries, query, True)
+    batch_search_results = search(parsed_entries, query, True)
 
     for i in range(0, res_per_batch):
-        raw_results.append(batch_search_results[i])
-
-    for i in range(len(raw_results) - res_per_batch, len(raw_results)):
-        if raw_results[i][1] > 0.01:
-            matched_results.append(list(raw_results[i]))
-            cur_valid_batch += 1
-
-    for i in range(len(matched_results) - cur_valid_batch, len(matched_results)):
-        matched_results[i][0] = entries[matched_results[i][0]]
-        for e in parsed_entries:
-            if e[0] == matched_results[i][0]:
-                roms.append(e)
-                break
+        if batch_search_results[i][1] > 0.01:
+            roms.append([parsed_entries[batch_search_results[i][0]][0], 
+                        parsed_entries[batch_search_results[i][0]][1], batch_search_results[i][1]])
     
     return roms
 
-def search(entries: list[str], query: str, batch: bool):
+def search(entries: list[list[str]], query: str, batch: bool):
     r"""TF-IDF weighted search engine to find best match(es) for a query against supplied entries.
 
     :param entries: `List` of strings containing every valid search candidate
     :param query: `String` of user-supplied search term(s)
     :param batch: `Boolean` switch used to supply `batch_search()` with relevant results
     :return: If `batch == True` returns raw `Tuple` of entry indices paired with similarity values.
-    Else If `batch == False` returns `List` of entry strings (ROM names) corresponding to search results
-    with similarity >0.01
+    Else If `batch == False` returns `List` of string lists containing ROM names and ROM URLs each 
+    corresponding to search results with similarity >0.01
     """
-    entries_set = []
+    entries_set = [k[0] for k in entries]
 
     # cleans/prunes each entry
-    for e in entries:
+    for e in entries_set:
         e = re.sub(r'[^\w\s\d]', ' ', e)
         e = re.sub(r'[%s]' % re.escape(string.punctuation), ' ', e)
-        entries_set.append(e.lower())
+        e = e.lower()
         
 
     v = TfidfVectorizer(stop_words='english')
     
-    X = v.fit_transform(entries)
+    X = v.fit_transform(entries_set)
     X = X.T.toarray()
 
     dataFrame = pd.DataFrame(X, index=v.get_feature_names_out())
@@ -176,7 +170,7 @@ def search(entries: list[str], query: str, batch: bool):
     query = query.lower()
 
     # retrieves sorted list of (entry_index, sim_val) pairs
-    results = get_similar_entries(entries, query, dataFrame, v)
+    results = get_similar_entries(entries_set, query, dataFrame, v)
 
     # formats final string list with entry strings with >0.01 similarity
     search_results = []
@@ -232,8 +226,6 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
     key = ''
 
     batch_results = []
-    raw_search_results = []
-    matched_results = []
     roms = []
     
     status_pad = window.subpad(1, 18, curses.LINES // 2 + 1, curses.COLS // 2 - 9)
@@ -252,12 +244,12 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
             status_pad.refresh()
             for collection in collections[console]:
                 entries = parse_collection(collection.strip())
-                roms.extend(batch_search(raw_search_results, matched_results, entries, query, 5))
+                roms.extend(batch_search(entries, query, 5))
 
-        sorted_results = sorted(matched_results, key=lambda x: x[1], reverse=True)
+        sorted_results = sorted(roms, key=lambda x: x[2], reverse=True)
 
         for i in range(len(sorted_results)):
-            batch_results.append(sorted_results[i][0])
+            batch_results.append([sorted_results[i][0], sorted_results[i][1]])
 
         loading_screen(window, "", False)
 
@@ -265,10 +257,7 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
             rom_sel = nav_results(window, batch_results)
 
             if rom_sel != None:
-                for r in roms:
-                    if r[0] == rom_sel:
-                        rom_options(window, roms, rom_sel)
-                        break
+                rom_options(window, rom_sel)
             msg = "Press ESC to return | Press S to search | Press any other key to continue"
             msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
             msg_pad.addstr(0, 0, msg)
@@ -284,8 +273,6 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
             break
         else:
             batch_results.clear()
-            raw_search_results.clear()
-            matched_results.clear()
             query = get_query(window)
 
 def search_console(window, collections: list[str], console: str):
@@ -313,13 +300,13 @@ def search_console(window, collections: list[str], console: str):
 
     while True:
         msg_splash(window, console)
-        search_results = search([k[0] for k in entries], query, False)
+        search_results = search(entries, query, False)
 
         while True:
             rom_sel = nav_results(window, search_results)
 
             if rom_sel != None:
-                rom_options(window, entries, rom_sel)
+                rom_options(window, rom_sel)
             msg = "Press ESC to return | Press S to search | Press any other key to continue"
             msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
             msg_pad.addstr(0, 0, msg)
@@ -396,16 +383,18 @@ def select_collection(window, collections: dict[str, list[str]], consoles: list[
     :return: `String` of nav_results() output denoting selected collection URL
     """
     title_screen(window)
-    # returns url of selected collection
+
     collection_list = []
 
     for c in consoles:
         for collection in collections[c]:
-            collection_list.append(collection)
+            collection_list.append([collection, c])
 
-    msg_splash(window, "COL")
+    msg_splash(window, "COLX")
 
-    return nav_results(window, collection_list)
+    url = nav_results(window, collection_list)[0]
+
+    return url
 
 def browse_collection(window, url: str):
     r"""Browse UI for individual ROM collection specified by provided URL string.
@@ -418,17 +407,17 @@ def browse_collection(window, url: str):
 
     loading_screen(window, "Parsing Collection...", True)
 
-    entries = parse_collection(url.strip())
+    entries = parse_collection(url)
 
     loading_screen(window, "", False)
 
     while True:
         msg_splash(window, "BRWS")
 
-        rom_sel = nav_results(window, [k[0] for k in entries])
+        rom_sel = nav_results(window, entries)
 
         if rom_sel != None:
-            rom_options(window, entries, rom_sel)
+            rom_options(window, rom_sel)
         else:
             break
 
@@ -452,7 +441,7 @@ def browse_favorites(window):
         else:
             break
 
-def rom_options(window, entries: list[list[str]], sel: str):
+def rom_options(window, rom: list[list[str]]):
     r"""Displays simple option menu and processes corresponding input. Options
     include downloading, favoriting, viewing ROM info, and returning.
 
@@ -461,10 +450,6 @@ def rom_options(window, entries: list[list[str]], sel: str):
     :param sel: `String` denoting the name of the ROM in subject
     :return: None
     """
-    for e in entries:
-        if e[0] == sel:
-            rom = e
-            break
 
     msg_splash(window, "ROM")
 
@@ -569,7 +554,7 @@ def loading_screen(window, message: str, in_progress: bool):
         title_screen(window)
         window.refresh()
 
-def nav_results(window, search_results: list[str]):
+def nav_results(window, search_results: list[list[str]]):
     r"""Navigates list of results in a scrollable fashion.
 
     :param window: curses window object (`stdscr`)
@@ -577,6 +562,8 @@ def nav_results(window, search_results: list[str]):
     :return: Upon `ENTER` keypress returns selected entry string. Otherwise
     returns `None`
     """
+    pruned_results = [k[0] for k in search_results]
+
     cursor_pad_pos = 0
     cursor_offset = 0
     
@@ -586,7 +573,7 @@ def nav_results(window, search_results: list[str]):
     disp_text.addstr(0, 0, "%d results found" % len(search_results), curses.A_BOLD)
     disp_text.refresh()
 
-    show_results(window, search_results, cursor_offset)
+    show_results(window, pruned_results, cursor_offset)
 
     if len(search_results) > 0:
         while True:
@@ -598,7 +585,7 @@ def nav_results(window, search_results: list[str]):
                 elif cursor_offset > 0:
                     cursor_offset -= 1
                 cursor_pad.addstr(cursor_pad_pos, 0, ">")
-                show_results(window, search_results, cursor_offset)
+                show_results(window, pruned_results, cursor_offset)
             elif key == curses.KEY_DOWN:
                 cursor_pad.clear()
                 if cursor_pad_pos + 10 < curses.LINES - 1 and cursor_pad_pos < len(search_results) - 1:
@@ -606,7 +593,7 @@ def nav_results(window, search_results: list[str]):
                 elif cursor_offset + (curses.LINES - 10) < len(search_results):
                     cursor_offset += 1
                 cursor_pad.addstr(cursor_pad_pos, 0, ">")
-                show_results(window, search_results, cursor_offset)
+                show_results(window, pruned_results, cursor_offset)
             elif key == curses.KEY_ENTER or key == 10:
                 return search_results[cursor_pad_pos + cursor_offset]
             elif key == curses.ascii.ESC:
@@ -680,7 +667,7 @@ def load_collections(collections: dict[str, list[str]], consoles: list[list[str]
             collection_list = []
             i += 1
             while lines[i].startswith('https://archive.org/download/'):
-                collection_list.append(lines[i])
+                collection_list.append(lines[i].strip())
                 i += 1
                 if i >= len(lines) - 1:
                     break
@@ -735,7 +722,9 @@ def parse_collection(url):
                 or s.endswith('.nes') or s.endswith('.smc') \
                 or s.endswith('.sfc') or s.endswith('.smd') \
                 or s.endswith('.gba') or s.endswith('.z64') \
-                or s.endswith('.32x') or s.endswith('.gg'):
+                or s.endswith('.32x') or s.endswith('.gg')  \
+                or s.endswith('.bin') or s.endswith('.md')  \
+                or s.endswith('.xci') or s.endswith('.rvz'):
                 strs.append(str(s))
         h = entry.find('a').get('href')
         if h.endswith('.zip') or h.endswith('.7z') \
@@ -743,7 +732,9 @@ def parse_collection(url):
             or h.endswith('.nes') or h.endswith('.smc') \
             or h.endswith('.sfc') or h.endswith('.smd') \
             or h.endswith('.gba') or h.endswith('.z64') \
-            or h.endswith('.32x') or h.endswith('.gg'):
+            or h.endswith('.32x') or h.endswith('.gg')  \
+            or h.endswith('.bin') or h.endswith('.md')  \
+            or h.endswith('.xci') or h.endswith('.rvz'):
             hrefs.append(url + h)
 
     entries = []
