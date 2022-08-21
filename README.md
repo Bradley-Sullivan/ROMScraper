@@ -4,7 +4,7 @@ ROMScraper is a tool used to scrape game console ROMs (and other files) from `ar
 
 Search options include searching all provided collections, searching by specific consoles, browsing specific collecitons, and browsing favorited ROMs/other files.
 
-![ROMScraper_Main_menu](https://user-images.githubusercontent.com/77858921/183275665-9f096d00-1a5c-4010-8cb5-9c1b938263ba.png)
+![ROM_Main_Menu](https://user-images.githubusercontent.com/77858921/185810410-f0c4a896-6ff9-4080-8a8d-ecda72327ace.png)
 
 ![ROM_Console_Selection](https://user-images.githubusercontent.com/77858921/185808735-87641dd9-a103-4b4a-8986-1bdfa4749ce9.png)
 
