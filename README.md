@@ -10,9 +10,12 @@ Search options include searching all provided collections, searching by specific
 
 ![ROM_Search_Results](https://user-images.githubusercontent.com/77858921/185809758-e021b3e9-91c3-4e1a-82ce-44ad12eccd19.png)
 
-## Tested Development Environments
+## Tested Usage/Development Environments
 - Ubuntu 22.04
   - Python v3.10.4
+  
+- Windows 10.0.19044
+  - Python v3.9.1
   
 ## Configuration and Usage
 - Configuration
@@ -24,7 +27,7 @@ Search options include searching all provided collections, searching by specific
   
  - Usage
  
-    - Navigate to program directory and execute `python3 scraper.py [output_dir]`
+    - Navigate to program directory and execute `python scraper.py [output_dir]`
 
       - NOTE: Before running the program, make sure that the terminal window is sized large enough (roughly 35 lines by 135 columns) or fullscreen
 
