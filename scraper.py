@@ -8,19 +8,13 @@ if len(sys.argv) > 1:
 else:
     OUTPUT_DIR = ""
 
-class ROM:
-    def __init__(self, console, collection, url, name):
-        self.console = console
-        self.collection = collection
-        self.url = url
-        self.name = name
-
 def main():
     curses.wrapper(curses_main)
 
 def curses_main(window):
     # TODO: implement view rom info (console, collection, size, checksums)
     # redump.org checksum verification after download?
+    # implement playlist creation within rom_options()?
 
     r"""Main program entry point. Presents a main menu and diverts program flow accoring to user selection.
 
@@ -76,6 +70,10 @@ def main_menu(window):
 
     msg_pad = window.subpad(1, len("Press ESC to exit") + 1, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to exit") // 2)
     msg_pad.addstr(0, 0, "Press ESC to exit")
+
+    disp_text.refresh()
+    cursor_pad.refresh()
+    msg_pad.refresh()
 
     while True:
         key = window.getch()
@@ -254,13 +252,14 @@ def search_all(window, collections: dict[str, list[str]], consoles: list[str]):
         loading_screen(window, "", False)
 
         while True:
-            rom_sel = nav_results(window, batch_results)
+            rom_sel = nav_results(window, batch_results, False)
 
             if rom_sel != None:
                 rom_options(window, rom_sel)
-            msg = "Press ESC to return | Press S to search | Press any other key to continue"
+            msg = "Press ESC to return | Press S to search | Press any other key to keep browsing"
             msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
             msg_pad.addstr(0, 0, msg)
+            msg_pad.refresh()
 
             key = window.getch()
 
@@ -303,13 +302,14 @@ def search_console(window, collections: list[str], console: str):
         search_results = search(entries, query, False)
 
         while True:
-            rom_sel = nav_results(window, search_results)
+            rom_sel = nav_results(window, search_results, False)
 
             if rom_sel != None:
                 rom_options(window, rom_sel)
-            msg = "Press ESC to return | Press S to search | Press any other key to continue"
+            msg = "Press ESC to return | Press S to search | Press any other key to keep browsing"
             msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
             msg_pad.addstr(0, 0, msg)
+            msg_pad.refresh()
             
             key = window.getch()
 
@@ -333,46 +333,16 @@ def select_console(window, keys: list[list[str]]):
     """
     title_screen(window)
 
-    sel_cursor = 0
-
-    disp_text = window.subpad(len(keys) + 1, curses.COLS // 2, 12, curses.COLS // 2)
-    cursor_pad = window.subpad(len(keys), 2, 13, curses.COLS // 2)
-    ascii_art = window.subpad(7, 32, 17, curses.COLS // 8)
-    msg_pad = window.subpad(1, len("Press ESC to return to main menu") + 1, curses.LINES - 2, curses.COLS // 2 - len("Press ESC to return to main menu") // 2)
-    
-    msg_pad.addstr(0, 0, "Press ESC to return to main menu")
-    ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor][0]))
-    disp_text.addstr(0, 0, "Select a console:", curses.A_UNDERLINE)
-    cursor_pad.addstr(sel_cursor, 0, ">")
+    console_list = []
     for i in range(len(keys)):
-        disp_text.addstr(i + 1, 2, keys[i][1], curses.A_BOLD)    
+        console_list.append([keys[i][1], keys[i][0]])
 
-    while True:
-        key = window.getch()
-        if key == curses.KEY_UP:
-            cursor_pad.clear()
-            if sel_cursor > 0:
-                sel_cursor -= 1
-            elif sel_cursor == 0:
-                sel_cursor = len(keys) - 1
-            cursor_pad.addstr(sel_cursor, 0, ">")
-            ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor][0]))
-        elif key == curses.KEY_DOWN:
-            cursor_pad.clear()
-            if sel_cursor < len(keys) - 1:
-                sel_cursor += 1
-            elif sel_cursor == len(keys) - 1:
-                sel_cursor = 0
-            cursor_pad.addstr(sel_cursor, 0, ">")
-            ascii_art.addstr(0, 0, pyfiglet.figlet_format(keys[sel_cursor][0]))
-        elif key == curses.KEY_ENTER or key == 10:
-            break
-        elif key == curses.ascii.ESC:
-            return None
-        cursor_pad.refresh()
-        ascii_art.refresh()
+    ret = nav_results(window, console_list, True)
 
-    return keys[sel_cursor][0]
+    if ret != None:
+        return ret[1]
+    else:
+        return None
 
 def select_collection(window, collections: dict[str, list[str]], consoles: list[str]):
     r"""Selection UI for choosing a ROM collection to browse.
@@ -392,7 +362,7 @@ def select_collection(window, collections: dict[str, list[str]], consoles: list[
 
     msg_splash(window, "COLX")
 
-    url = nav_results(window, collection_list)[0]
+    url = nav_results(window, collection_list, False)[0]
 
     return url
 
@@ -414,7 +384,7 @@ def browse_collection(window, url: str):
     while True:
         msg_splash(window, "BRWS")
 
-        rom_sel = nav_results(window, entries)
+        rom_sel = nav_results(window, entries, False)
 
         if rom_sel != None:
             rom_options(window, rom_sel)
@@ -434,12 +404,14 @@ def browse_favorites(window):
     while True:
         msg_splash(window, "F A V")
 
-        rom_sel = nav_results(window, [k[0] for k in entries])
+        rom_sel = nav_results(window, [k[0] for k in entries], False)
 
         if rom_sel != None:
             rom_options(window, entries, rom_sel)
         else:
             break
+        
+
 
 def rom_options(window, rom: list[list[str]]):
     r"""Displays simple option menu and processes corresponding input. Options
@@ -456,6 +428,7 @@ def rom_options(window, rom: list[list[str]]):
     msg = "Download (D) | Favorite (F) | View Info (I) | Back (B)"
     msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2)
     msg_pad.addstr(0, 0, msg, curses.A_BOLD)
+    msg_pad.refresh()
 
     key = window.getch()
 
@@ -554,21 +527,27 @@ def loading_screen(window, message: str, in_progress: bool):
         title_screen(window)
         window.refresh()
 
-def nav_results(window, search_results: list[list[str]]):
+def nav_results(window, search_results: list[list[str]], splash: bool):
     r"""Navigates list of results in a scrollable fashion.
 
     :param window: curses window object (`stdscr`)
     :param search_results: `String` list containing results to navigate
-    :return: Upon `ENTER` keypress returns selected entry string. Otherwise
-    returns `None`
+    :param splash: `Boolean` var. which will add splashes based on cursor. Needs splash messages to be paired alongside navigable results.
+    :return: Upon `ENTER` keypress returns selected entry string. Otherwise returns `None`.
     """
+
     pruned_results = [k[0] for k in search_results]
+    splash_list = []
+
+    if splash:
+        splash_list = [k[1] for k in search_results]
 
     cursor_pad_pos = 0
     cursor_offset = 0
     
     cursor_pad = window.subpad(curses.LINES - 9, 1, 8, 2)
     cursor_pad.addstr(cursor_pad_pos, 0, ">")
+    cursor_pad.refresh()
     disp_text = window.subpad(1, curses.COLS - 4, curses.LINES - 2, 3)
     disp_text.addstr(0, 0, "%d results found" % len(search_results), curses.A_BOLD)
     disp_text.refresh()
@@ -577,6 +556,8 @@ def nav_results(window, search_results: list[list[str]]):
 
     if len(search_results) > 0:
         while True:
+            if splash:
+                msg_splash(window, splash_list[cursor_pad_pos + cursor_offset])
             key = window.getch()
             if key == curses.KEY_UP:
                 cursor_pad.clear()
@@ -600,7 +581,8 @@ def nav_results(window, search_results: list[list[str]]):
                 break
             cursor_pad.refresh()
     else:
-        msg_splash(window, ": (")
+        cursor_pad.clear()
+        cursor_pad.refresh()
     
     cursor_pad.clear()
     cursor_pad.refresh()
@@ -620,17 +602,30 @@ def show_results(window, search_results: list[str], cur_offset: int):
     :return: None
     """
     rom_nav = window.subpad(curses.LINES - 10, curses.COLS - 5, 8, 4)
+    rom_nav.refresh()
 
     if len(search_results) > 0:
         rom_nav.clear()
         rom_nav.refresh()
         for i in range(cur_offset, len(search_results)):
             if i - cur_offset < curses.LINES - 10:
-                rom_nav.addstr(i - cur_offset, 0, search_results[i])
+                if len(search_results[i]) > curses.COLS - 8:
+                    rom_nav.addstr(i - cur_offset, 0, search_results[i][:curses.COLS - 10])
+                    pass
+                else:
+                    rom_nav.addstr(i - cur_offset, 0, search_results[i])
             rom_nav.refresh()
     else:
         rom_nav.clear()
         rom_nav.addstr(0, 0, "No results found")
+        rom_nav.refresh()
+        msg = "Press any key to return..."
+        msg_pad = window.subpad(1, len(msg) + 1, curses.LINES - 2, curses.COLS // 2 - len(msg) // 2 - 3)
+        msg_pad.addstr(0, 0, msg, curses.A_BOLD)
+        msg_pad.refresh()
+        msg_splash(window, ": (")
+        window.getch()
+        rom_nav.clear()
         rom_nav.refresh()
 
 def msg_splash(window, msg: str):
@@ -689,8 +684,6 @@ def parse_favorites():
     for line in lines:
         entries.append(line.split(" ; "))
     file.close()
-
-    print(entries)
 
     return entries
 
