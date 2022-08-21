@@ -6,9 +6,9 @@ Search options include searching all provided collections, searching by specific
 
 ![ROMScraper_Main_menu](https://user-images.githubusercontent.com/77858921/183275665-9f096d00-1a5c-4010-8cb5-9c1b938263ba.png)
 
-![ROMScraper_Console_Selection](https://user-images.githubusercontent.com/77858921/183275682-87a807d8-3ad8-4541-8fe7-9fa2042a637b.png)
+![ROM_Console_Selection](https://user-images.githubusercontent.com/77858921/185808735-87641dd9-a103-4b4a-8986-1bdfa4749ce9.png)
 
-![ROMScraper_Favorites](https://user-images.githubusercontent.com/77858921/183275684-70991328-b03e-461d-b106-b7756aa36680.png)
+![ROM_Search_Results](https://user-images.githubusercontent.com/77858921/185809758-e021b3e9-91c3-4e1a-82ce-44ad12eccd19.png)
 
 ## Tested Development Environments
 - Ubuntu 22.04
