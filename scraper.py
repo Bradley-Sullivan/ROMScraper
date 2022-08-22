@@ -1,4 +1,14 @@
-import requests, bs4, curses, pyfiglet, time, sys
+import sys, subprocess, pkg_resources
+
+dep = {'requests', 'beautifulsoup4', 'pyfiglet', 'sklearn', 'pandas', 'numpy'}
+installed = {pkg.key for pkg in pkg_resources.working_set}
+missing = dep - installed
+
+if len(missing) > 0:
+    python = sys.executable
+    subprocess.check_call([python, '-m', 'pip', 'install', *missing], stdout=subprocess.DEVNULL)
+
+import requests, bs4, curses, pyfiglet, time
 import re, string, numpy as np, pandas as pd
 from curses.textpad import Textbox, rectangle
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -154,7 +164,8 @@ def search(entries: list[list[str]], query: str, batch: bool):
     # cleans/prunes each entry
     for e in entries_set:
         e = re.sub(r'[^\w\s\d]', ' ', e)
-        e = re.sub(r'[%s]' % re.escape(string.punctuation), ' ', e)
+        e = re.sub(r'_', '', e)
+        e.strip(string.punctuation)
         e = e.lower()
         
 
