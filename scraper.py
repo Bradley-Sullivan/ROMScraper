@@ -6,7 +6,7 @@ missing = dep - installed
 
 if len(missing) > 0:
     python = sys.executable
-    subprocess.check_call([python, '-m', 'pip', 'install', *missing], stdout=subprocess.DEVNULL)
+    subprocess.check_call([python, '-m', 'pip3', 'install', *missing], stdout=subprocess.DEVNULL)
 
 import requests, bs4, curses, pyfiglet, time
 import re, string, numpy as np, pandas as pd
