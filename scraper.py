@@ -5,6 +5,9 @@ installed = {pkg.key for pkg in pkg_resources.working_set}
 missing = dep - installed
 
 if len(missing) > 0:
+    print("Found %d missing modules.\n" % len(missing))
+    for module in missing:
+        print("\nInstalling %s ..." % module)
     python = sys.executable
     subprocess.check_call([python, '-m', 'pip', 'install', *missing], stdout=subprocess.DEVNULL)
 
