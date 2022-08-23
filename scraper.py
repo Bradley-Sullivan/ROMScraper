@@ -11,7 +11,7 @@ for module in dependent_modules:
         missing_modules.append(module)
 
 if len(missing_modules) > 0:
-    print("\n\nPlease install the following modules required by the program:\n")
+    print("\n\nPlease install the following modules required by the program:")
     for module in missing_modules:
         print("\t- %s" % module)
     exit(1)
