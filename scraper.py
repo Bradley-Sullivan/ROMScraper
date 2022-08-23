@@ -7,13 +7,13 @@ for module in dependent_modules:
     try:
         importlib.import_module(module)
     except:
-        print("ERROR: Missing required module --> %s\n" % module)
+        print("ERROR: Missing required module --> %s" % module)
         missing_modules.append(module)
 
 if len(missing_modules) > 0:
     print("\n\nPlease install the following modules required by the program:\n")
     for module in missing_modules:
-        print("\t- %s\n" % module)
+        print("\t- %s" % module)
     exit(1)
 
 
