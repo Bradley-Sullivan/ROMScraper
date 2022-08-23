@@ -1,14 +1,36 @@
-import importlib
-
-dependent_modules = ['requests', 'beautifulsoup4', 'pyfiglet', 'numpy', 'pandas', 'sklearn']
+import importlib, time, sys, re, string
 missing_modules = []
 
-for module in dependent_modules:
-    try:
-        importlib.import_module(module)
-    except:
-        print("ERROR: Missing required module --> %s" % module)
-        missing_modules.append(module)
+try:
+    import requests
+except:
+    missing_modules.append('requests')
+
+try:
+    import bs4
+except:
+    missing_modules.append('beautifulsoup4')
+
+try:
+    import pyfiglet
+except:
+    missing_modules.append('pyfiglet')
+
+try:
+    import numpy as np
+except:
+    missing_modules.append('numpy')
+
+try:
+    import pandas as pd
+except:
+    missing_modules.append('pandas')
+
+try:
+    import sklearn
+except:
+    missing_modules.append('sklearn')
+
 
 if len(missing_modules) > 0:
     print("\n\nPlease install the following modules required by the program:")
@@ -17,8 +39,6 @@ if len(missing_modules) > 0:
     exit(1)
 
 
-import requests, bs4, curses, pyfiglet, time, sys
-import re, string, numpy as np, pandas as pd
 from curses.textpad import Textbox, rectangle
 from sklearn.feature_extraction.text import TfidfVectorizer
 
