@@ -1,4 +1,4 @@
-import time, sys, re, string
+import time, sys, re, string, curses
 missing_modules = []
 
 try:
