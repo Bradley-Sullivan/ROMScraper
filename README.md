@@ -19,16 +19,27 @@ Search options include searching all provided collections, searching by specific
   
 ## Configuration and Usage
 - Configuration
-  - `collections.txt`
 
-    - This program relies on `archive.org/download/` collections that are placed in the text file `collections.txt`. This is where it pulls the archives that it will scrape, parse, and download from.
+    - This Python program requires Python version >= v3.9
 
-    - If you wish to organize each collection by console, or some other designation, each URL will need to be placed on its own line after a header in the format `+<Abbrev. Title> : <Full title>`. Abbreviated titles are used internally and as decorative UI splashes, where full titles are used for menu selections.
+    - Program also relies on several Python modules, outside of the standard library, that must be installed to function correctly:
+
+        - requests, beautifulsoup4, pyfiglet, numpy, pandas, and sklearn
+
+        - These modules can be installed using the Python `pip` module, or installed directly from the module's website
+
+    - `collections.txt`
+
+        - This program relies on `archive.org/download/` collections that are placed in the text file `collections.txt`. This is where it pulls the archives that it will scrape, parse, and download from.
+
+        - If you wish to organize each collection by console, or some other designation, each URL will need to be placed on its own line after a header in the format `+<Abbrev. Title> : <Full title>`. Abbreviated titles are used internally and as decorative UI splashes, where full titles are used for menu selections.
   
  - Usage
- 
-    - Navigate to program directory and execute `python scraper.py [output_dir]`
+
+    - Navigate to program directory and execute `python3.X scraper.py [output_dir]`
 
       - NOTE: Before running the program, make sure that the terminal window is sized large enough (roughly 35 lines by 135 columns) or fullscreen
 
     - If no output directory is specified all downloaded files will be stored alongside `scraper.py`
+
+    - Menus are navigated using the arrow-keys and the ENTER key. The ESC key is a useful key when exiting menus.
