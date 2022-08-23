@@ -1,17 +1,4 @@
-import sys, subprocess, pkg_resources
-
-dep = {'requests', 'beautifulsoup4', 'pyfiglet', 'sklearn', 'pandas', 'numpy'}
-installed = {pkg.key for pkg in pkg_resources.working_set}
-missing = dep - installed
-
-if len(missing) > 0:
-    print("Found %d missing modules.\n" % len(missing))
-    for module in missing:
-        print("\nInstalling %s ..." % module)
-    python = sys.executable
-    subprocess.check_call([python, '-m', 'pip', 'install', *missing], stdout=subprocess.DEVNULL)
-
-import requests, bs4, curses, pyfiglet, time
+import requests, bs4, curses, pyfiglet, time, sys
 import re, string, numpy as np, pandas as pd
 from curses.textpad import Textbox, rectangle
 from sklearn.feature_extraction.text import TfidfVectorizer
